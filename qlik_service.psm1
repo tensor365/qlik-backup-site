@@ -41,7 +41,6 @@ function Stop-QlikSenseServices {
     Write-Host " Tous les services Qlik Sense sont arrêtés (ou déjà arrêtés)." -ForegroundColor Cyan
 }
 
-
 function Start-QlikSenseServices {
     [CmdletBinding()]
     param (
@@ -114,8 +113,55 @@ function New-QlikBackupArchive {
         # Compresser le contenu du dossier source (les fichiers et sous-dossiers)
         Compress-Archive -Path (Join-Path $SourcePath '*') -DestinationPath $zipPath -Force
         Write-Host "Archive créée : $zipPath" -ForegroundColor Green
+        return @($zipPath, $zipName) 
     }
     catch {
         Write-Error "Erreur lors de la création de l'archive : $_"
+    }
+}
+
+
+function Copy-FileToRemoteServer {
+    param (
+        [string]$sshHost,
+        [string]$sshUser,
+        [string]$sshPassword,
+        [int]$sshPort = 22,
+        [string]$localFile,
+        [string]$remotePath
+    )
+
+    # Charger la bibliothèque WinSCP
+    $winSCPPath = "C:\Program Files (x86)\WinSCP\WinSCPnet.dll"
+    if (-not (Test-Path $winSCPPath)) {
+        Write-Error "WinSCPnet.dll non trouvé à l'emplacement : $winSCPPath"
+        return
+    }
+
+    Add-Type -Path $winSCPPath
+
+    # Préparer les options de session
+    $sessionOptions = New-Object WinSCP.SessionOptions -Property @{
+        Protocol = [WinSCP.Protocol]::Sftp
+        HostName = $sshHost
+        UserName = $sshUser
+        Password = $sshPassword
+        PortNumber = $sshPort
+        SshHostKeyPolicy = [WinSCP.SshHostKeyPolicy]::GiveUpSecurityAndAcceptAny
+    }
+
+    $session = New-Object WinSCP.Session
+
+    try {
+        $session.Open($sessionOptions)
+        $transferResult = $session.PutFiles($localFile, $remotePath)
+        $transferResult.Check()
+        Write-Output "✅ Transfert terminé avec succès."
+    }
+    catch {
+        Write-Error "❌ Erreur lors du transfert : $_"
+    }
+    finally {
+        $session.Dispose()
     }
 }

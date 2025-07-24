@@ -11,7 +11,7 @@ function Copy-UncFolder {
     $logPath = Join-Path -Path $env:TEMP -ChildPath "CopyLog.log"
     
     Write-Host "Copie de $SourcePath vers $DestinationPath..."
-    robocopy $SourcePath $DestinationPath /MIR /Z /R:2 /W:5 /LOG:$logPath
+    robocopy $SourcePath $DestinationPath /MIR /Z /R:2 /W:5 /MT:16 /LOG:$logPath
     $code = $LASTEXITCODE
 
     if ($code -ge 8) {

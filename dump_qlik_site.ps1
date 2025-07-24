@@ -16,6 +16,7 @@ chcp 65001
 
 $outputDir = "C:\QlikBackup"
 $qlikShareFolder = "\\MP2FWBPY\QlikShare"
+$skipQlikShare = $true
 
 # === Informations paramètres sur la base de données à dump ===
 $PgBasePath = "C:\Program Files\Qlik\Sense\Repository\PostgreSQL"
@@ -24,6 +25,13 @@ $DbHost = "localhost"
 $DbPort = 4432
 $DbUser = "postgres"
 $DbPassword = ""
+
+# === Informations paramètres pour se connecter en SSH au serveur ===
+
+$sshHost = "xxxxxxx"
+$sshUser =  "xxxxx"
+$sshPassword = 'xxxxx'
+$sshPort = 22
 
 # === Informations paramètres sur les certificats ===
 $certPassword = ConvertTo-SecureString -String "" -Force -AsPlainText
@@ -124,12 +132,24 @@ Backup-QlikSenseDatabases -OutputDir $DbPath -PgBasePath $PgBasePath -PgVersion 
 
 Write-Host "=== Etape 3: Dump du Qlik Share ===" -ForegroundColor Cyan
 
-Copy-UncFolder -SourcePath (Join-Path $qlikShareFolder "Apps")  -DestinationPath $SharePath
-Copy-UncFolder -SourcePath (Join-Path $qlikShareFolder "StaticContent") -DestinationPath $SharePath
+if ($skipQlikShare -eq $true) {
+
+    Copy-UncFolder -SourcePath (Join-Path $qlikShareFolder "Apps")  -DestinationPath $SharePath
+    Copy-UncFolder -SourcePath (Join-Path $qlikShareFolder "StaticContent") -DestinationPath $SharePath
+} else{
+    Write-Host "Le dump du Qlik Share a été ignoré."
+}
 
 Write-Host "=== Etape 4: Création de l'archive ===" -ForegroundColor Cyan
 
-New-QlikBackupArchive -SourcePath $TempBackupPath -DestinationFolder $outputDir 
+$answer = New-QlikBackupArchive -SourcePath $TempBackupPath -DestinationFolder $outputDir 
+
+$zipPath = $answer[0]
+$zipName = $answer[1]
+
+Write-Host "=== Etape 5: Envoi de l'archive ===" -ForegroundColor Cyan
+
+Copy-FileToRemoteServer -sshHost $sshHost -sshUser $sshUser  -sshPassword $sshPassword  -localFile  $zipPath -remotePath "/data/$zipName"
 
 Write-Host "=== Etape 5: redémarrage des services Qlik Sense ===" -ForegroundColor Cyan
 
